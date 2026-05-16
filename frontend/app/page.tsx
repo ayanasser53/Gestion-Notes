@@ -7,44 +7,56 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
     setErrorMessage("");
     setSuccessMessage("");
 
-    try {
-      const res = await fetch(
-        "http://localhost:8081/api/auth/admin-login",
-        {
+    // On essaie admin d'abord, puis enseignant
+    const endpoints = [
+      { url: "http://localhost:8081/api/auth/admin-login", role: "admin" },
+      { url: "http://localhost:8081/api/auth/enseignant-login", role: "enseignant" },
+    ];
+
+    let connected = false;
+
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(endpoint.url, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("role", data.role);
+          localStorage.setItem("email", data.email);
+
+          setSuccessMessage("Connexion réussie ✅");
+          connected = true;
+
+          setTimeout(() => {
+            if (data.role === "admin") {
+              window.location.href = "/dashboard";
+            } else if (data.role === "enseignant") {
+              window.location.href = "/enseignant/saisie-notes";
+            }
+          }, 1500);
+
+          break;
         }
-      );
-
-      if (!res.ok) {
-        setErrorMessage("Email ou mot de passe incorrect ❌");
-        return;
+      } catch (_) {
+        // continuer à l'endpoint suivant
       }
+    }
 
-      const data = await res.json();
-
-      localStorage.setItem("token", data.token);
-
-      setSuccessMessage("Connexion réussie ✅");
-
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1500);
-    } catch (error) {
-      setErrorMessage("Erreur serveur ⚠️");
+    if (!connected) {
+      setErrorMessage("Email ou mot de passe incorrect ❌");
     }
   }
 
@@ -52,10 +64,7 @@ export default function LoginPage() {
     <main className="min-h-screen bg-white flex justify-center items-start py-3">
       <div className="w-[760px] min-h-[1000px] border border-black bg-white">
         <header className="h-[48px] border-b border-gray-400 flex items-center justify-between px-8">
-          <span className="text-[20px] text-gray-800">
-            Bulletins étudiant
-          </span>
-
+          <span className="text-[20px] text-gray-800">Bulletins étudiant</span>
           <div className="flex gap-2">
             <span className="w-[20px] h-[20px] rounded-full border-2 border-black" />
             <span className="w-[20px] h-[20px] rounded-full border-2 border-black" />
@@ -67,10 +76,8 @@ export default function LoginPage() {
           <div className="flex flex-col items-center mb-[55px]">
             <div className="relative w-[120px] h-[105px]">
               <div className="absolute left-1/2 -translate-x-1/2 w-0 h-0 border-l-[60px] border-r-[60px] border-b-[105px] border-l-transparent border-r-transparent border-b-red-500" />
-
               <div className="absolute top-[55px] left-1/2 -translate-x-1/2 w-[45px] h-[35px] bg-white/70 blur-md rounded-full" />
             </div>
-
             <div className="border-t border-b border-red-500 px-2">
               <h1 className="text-red-500 tracking-[0.45em] text-[30px] font-normal pl-3">
                 ENSIAS
@@ -108,7 +115,6 @@ export default function LoginPage() {
               <label className="block text-[17px] font-bold text-black mb-[12px]">
                 Email ENSIAS
               </label>
-
               <input
                 type="email"
                 value={email}
@@ -122,7 +128,6 @@ export default function LoginPage() {
               <label className="block text-[17px] font-bold text-black mb-[12px]">
                 Mot de passe
               </label>
-
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -131,17 +136,12 @@ export default function LoginPage() {
                   className="w-full h-[48px] border border-gray-400 rounded-[5px] px-3 pr-12 text-[17px] text-black outline-none focus:border-blue-500"
                   required
                 />
-
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-black"
                 >
-                  {showPassword ? (
-                    <EyeOff size={25} />
-                  ) : (
-                    <Eye size={25} />
-                  )}
+                  {showPassword ? <EyeOff size={25} /> : <Eye size={25} />}
                 </button>
               </div>
             </div>
