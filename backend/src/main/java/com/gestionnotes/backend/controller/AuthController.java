@@ -100,4 +100,32 @@ public class AuthController {
                 "token", token
         );
     }
+    @PostMapping("/enseignant-login")
+public Map<String, Object> loginEnseignant(@RequestBody LoginRequest request) throws Exception {
+
+    verifierEmailEnsias(request.getEmail());
+
+    User user = userRepository.findByEmail(request.getEmail())
+            .orElseThrow(() -> new RuntimeException("Email incorrect"));
+
+    String passwordHash = hashService.sha256(request.getPassword());
+
+    if (!user.getPasswordHash().equals(passwordHash)) {
+        throw new RuntimeException("Mot de passe incorrect");
+    }
+
+    if (!user.getRole().getNom().equals("enseignant")) {
+        throw new RuntimeException("Accès refusé : vous n'êtes pas enseignant");
+    }
+
+    String token = jwtService.generateToken(user);
+
+    return Map.of(
+            "message", "Connexion enseignant réussie",
+            "id", user.getId(),
+            "email", user.getEmail(),
+            "role", user.getRole().getNom(),
+            "token", token
+    );
+}
 }
