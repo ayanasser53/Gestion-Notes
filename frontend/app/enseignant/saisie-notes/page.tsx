@@ -1,24 +1,25 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 export default function SaisieNotesPage() {
   const router = useRouter();
+  const emailRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-   const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
 
     if (!token || role !== "enseignant") {
       router.push("/");
+      return;
+    }
+
+    if (emailRef.current) {
+      emailRef.current.textContent = localStorage.getItem("email") ?? "";
     }
   }, [router]);
-
-  const email =
-    typeof window !== "undefined"
-      ? (localStorage.getItem("email") ?? "")
-      : "";
 
   return (
     <main className="min-h-screen bg-white flex justify-center items-start py-3">
@@ -28,7 +29,7 @@ export default function SaisieNotesPage() {
           <span className="text-[20px] text-gray-800">Bulletins étudiant</span>
           <div className="flex items-center gap-4">
             <span className="text-[15px] text-gray-700">
-              Bienvenue Pr. {email}
+              Bienvenue Pr. <span ref={emailRef}></span>
             </span>
             <div className="relative w-[32px] h-[28px]">
               <div className="absolute left-1/2 -translate-x-1/2 w-0 h-0 border-l-[16px] border-r-[16px] border-b-[28px] border-l-transparent border-r-transparent border-b-red-500" />
