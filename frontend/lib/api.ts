@@ -29,7 +29,7 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 export const getEtudiants = () =>
   apiFetch("/api/admin/etudiants");
 
-export const createEtudiant = (body: any) =>
+export const createEtudiant = (body: Record<string, unknown>) =>
   apiFetch("/api/admin/etudiants", {
     method: "POST",
     body: JSON.stringify(body),
@@ -39,8 +39,22 @@ export const createEtudiant = (body: any) =>
 export const getEnseignants = () =>
   apiFetch("/api/admin/enseignants");
 
-export const createEnseignant = (body: any) =>
+export const createEnseignant = (body: Record<string, unknown>) =>
   apiFetch("/api/admin/enseignants", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+  // Matieres
+export const getMatieres = () =>
+  apiFetch("/api/admin/matieres");
+
+export const createMatiere = (body: Record<string, unknown>) =>
+  apiFetch("/api/admin/matieres", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const deleteMatiere = (id: number) =>
+  apiFetch(`/api/admin/matieres/${id}`, {
+    method: "DELETE",
   });

@@ -1,5 +1,9 @@
 package com.gestionnotes.backend.controller;
 
+import com.gestionnotes.backend.dto.CreateMatiereRequest;
+import com.gestionnotes.backend.entity.Matiere;
+
+import com.gestionnotes.backend.repository.MatiereRepository;
 import com.gestionnotes.backend.dto.CreateUserRequest;
 import com.gestionnotes.backend.entity.User;
 import com.gestionnotes.backend.repository.EnseignantRepository;
@@ -27,18 +31,23 @@ public class AdminController {
 
     private final UserRepository userRepository;
 
+    private final MatiereRepository matiereRepository;
+
     public AdminController(
             EnseignantService enseignantService,
             EtudiantService etudiantService,
             EnseignantRepository enseignantRepository,
             EtudiantRepository etudiantRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+             MatiereRepository matiereRepository
+            
     ) {
         this.enseignantService = enseignantService;
         this.etudiantService = etudiantService;
         this.enseignantRepository = enseignantRepository;
         this.etudiantRepository = etudiantRepository;
         this.userRepository = userRepository;
+        this.matiereRepository = matiereRepository;
     }
 
     // ================= CREATE ENSEIGNANT =================
@@ -137,4 +146,49 @@ public class AdminController {
                 Map.of("message", "Utilisateur supprimé")
         );
     }
+    @GetMapping("/matieres")
+    public ResponseEntity<?> listMatieres() {
+        List<Map<String, Object>> data =
+                matiereRepository.findAll()
+                        .stream()
+                        .map(m -> Map.<String, Object>of(
+                                "id", m.getId(),
+                                "code", m.getCode(),
+                                "intitule", m.getIntitule()
+                        ))
+                        .collect(Collectors.toList());
+
+        return ResponseEntity.ok(Map.of("data", data));
+    }
+    @PostMapping("/matieres")
+    public ResponseEntity<?> createMatiere(
+            @RequestBody CreateMatiereRequest req
+    ) {
+        if (matiereRepository.existsByCode(req.getCode())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Code matière déjà utilisé"));
+        }
+
+        Matiere m = new Matiere();
+        m.setCode(req.getCode());
+        m.setIntitule(req.getIntitule());
+        matiereRepository.save(m);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Matière créée avec succès",
+                "id", m.getId(),
+                "code", m.getCode(),
+                "intitule", m.getIntitule()
+        ));
+    }
+    @DeleteMapping("/matieres/{id}")
+    public ResponseEntity<?> deleteMatiere(@PathVariable Integer id) {
+        if (!matiereRepository.existsById(id)) {
+            return ResponseEntity.status(404)
+                    .body(Map.of("error", "Matière introuvable"));
+        }
+        matiereRepository.deleteById(id);
+        return ResponseEntity.ok(Map.of("message", "Matière supprimée"));
+    }
+
 }
