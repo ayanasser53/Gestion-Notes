@@ -15,12 +15,39 @@ public class Matiere {
 
     private String intitule;
 
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
+    @ManyToOne
+    @JoinColumn(name = "enseignant_id")
+    private Enseignant enseignant;
 
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
+    public Integer getId() {
+        return id;
+    }
 
-    public String getIntitule() { return intitule; }
-    public void setIntitule(String intitule) { this.intitule = intitule; }
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getIntitule() {
+        return intitule;
+    }
+
+    public void setIntitule(String intitule) {
+        this.intitule = intitule;
+    }
+
+    public Enseignant getEnseignant() {
+        return enseignant;
+    }
+
+    public void setEnseignant(Enseignant enseignant) {
+        this.enseignant = enseignant;
+    }
 }

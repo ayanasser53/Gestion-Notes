@@ -10,7 +10,7 @@ const PAGE_TITLES = {
   "/admin/classes":     "Référentiel des classes",
   "/admin/classes/affectation": "Affectation des étudiants / classes",
   "/admin/matieres":    "Référentiel des matières",
-  "/admin/planning":    "Planification",
+  "/admin/planification":    "Planification",
 };
 
 export default function AdminLayout({ children }) {

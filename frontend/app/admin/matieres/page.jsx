@@ -14,7 +14,6 @@ export default function MatieresPage() {
     getMatieres()
       .then((res) => setRows(res.data ?? []))
       .catch(() => setRows([]));
-
     getEnseignants()
       .then((res) => setEnseignants(res.data ?? []))
       .catch(() => setEnseignants([]));
@@ -23,7 +22,7 @@ export default function MatieresPage() {
   function addLine() {
     setNewRows((prev) => [
       ...prev,
-      { tempId: Date.now(), intitule: "", enseignantId: "" },
+      { tempId: Date.now(), code: "", intitule: "", enseignantId: "" },
     ]);
   }
 
@@ -34,17 +33,24 @@ export default function MatieresPage() {
   }
 
   async function handleSave() {
+    if (saving) return;
     setSaving(true);
     setMessage("");
     try {
       for (const row of newRows) {
-        if (!row.intitule) {
+        if (!row.code?.trim()) {
+          setMessage("Le code est obligatoire !");
+          setSaving(false);
+          return;
+        }
+        if (!row.intitule?.trim()) {
           setMessage("L'intitulé est obligatoire !");
           setSaving(false);
           return;
         }
         await createMatiere({
-          intitule: row.intitule,
+          code:         row.code.trim(),
+          intitule:     row.intitule.trim(),
           enseignantId: row.enseignantId || null,
         });
       }
@@ -74,7 +80,7 @@ export default function MatieresPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6 max-w-4xl">
       <h2 className="text-[20px] font-bold text-black mb-6">Matières</h2>
 
       {message && (
@@ -91,6 +97,7 @@ export default function MatieresPage() {
         <table className="w-full text-[14px]">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-300">
+              <th className="text-left px-4 py-3 font-semibold w-32">Code</th>
               <th className="text-left px-4 py-3 font-semibold">Intitulé</th>
               <th className="text-left px-4 py-3 font-semibold">Enseignée par</th>
               <th className="px-4 py-3 w-16"></th>
@@ -99,23 +106,25 @@ export default function MatieresPage() {
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-gray-200 hover:bg-gray-50">
+                <td className="px-4 py-2 text-gray-500 font-mono text-xs">{row.code}</td>
                 <td className="px-4 py-2 text-gray-700">{row.intitule}</td>
-                <td className="px-4 py-2 text-gray-700">
-                  {getEnseignantNom(row.enseignantId)}
-                </td>
+                <td className="px-4 py-2 text-gray-700">{getEnseignantNom(row.enseignantId)}</td>
                 <td className="px-4 py-2 text-center">
-                  <button
-                    onClick={() => handleDelete(row.id)}
-                    className="text-red-400 hover:text-red-600 text-xs"
-                  >
-                    ✕
-                  </button>
+                  <button onClick={() => handleDelete(row.id)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
                 </td>
               </tr>
             ))}
-
             {newRows.map((row) => (
               <tr key={row.tempId} className="border-b border-gray-200 bg-blue-50">
+                <td className="px-4 py-2">
+                  <input
+                    type="text"
+                    value={row.code}
+                    onChange={(e) => updateNewRow(row.tempId, "code", e.target.value)}
+                    placeholder="Ex: POO"
+                    className="w-full border border-gray-300 rounded px-2 py-1 text-[13px] outline-none focus:border-blue-500 font-mono uppercase"
+                  />
+                </td>
                 <td className="px-4 py-2">
                   <input
                     type="text"
@@ -133,23 +142,15 @@ export default function MatieresPage() {
                   >
                     <option value="">Enseignée par</option>
                     {enseignants.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        Pr. {e.nom} {e.prenom}
-                      </option>
+                      <option key={e.id} value={e.id}>Pr. {e.nom} {e.prenom}</option>
                     ))}
                   </select>
                 </td>
                 <td className="px-4 py-2 text-center">
                   <button
-                    onClick={() =>
-                      setNewRows((prev) =>
-                        prev.filter((r) => r.tempId !== row.tempId)
-                      )
-                    }
+                    onClick={() => setNewRows((prev) => prev.filter((r) => r.tempId !== row.tempId))}
                     className="text-red-400 hover:text-red-600 text-xs"
-                  >
-                    ✕
-                  </button>
+                  >✕</button>
                 </td>
               </tr>
             ))}
@@ -167,7 +168,7 @@ export default function MatieresPage() {
         <button
           onClick={handleSave}
           disabled={saving || newRows.length === 0}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-[13px] font-semibold transition disabled:opacity-40"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded text-[13px] font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {saving ? "Enregistrement..." : "Enregistrer"}
         </button>

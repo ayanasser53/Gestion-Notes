@@ -8,7 +8,7 @@ const navItems = [
   { href: "/admin/etudiants",   label: "Etudiants"   },
   { href: "/admin/classes",     label: "Classes"      },
   { href: "/admin/matieres",    label: "Matières"     },
-  { href: "/admin/planning",    label: "Planification"},
+  { href: "/admin/planification",    label: "Planification"},
 ];
 
 export default function Sidebar() {

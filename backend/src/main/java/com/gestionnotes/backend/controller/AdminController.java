@@ -1,6 +1,7 @@
 package com.gestionnotes.backend.controller;
 
 import com.gestionnotes.backend.dto.CreateMatiereRequest;
+import com.gestionnotes.backend.entity.Enseignant;
 import com.gestionnotes.backend.entity.Matiere;
 
 import com.gestionnotes.backend.repository.MatiereRepository;
@@ -146,49 +147,94 @@ public class AdminController {
                 Map.of("message", "Utilisateur supprimé")
         );
     }
+ // ================= LIST MATIERES =================
+
     @GetMapping("/matieres")
     public ResponseEntity<?> listMatieres() {
+
         List<Map<String, Object>> data =
                 matiereRepository.findAll()
                         .stream()
                         .map(m -> Map.<String, Object>of(
                                 "id", m.getId(),
                                 "code", m.getCode(),
-                                "intitule", m.getIntitule()
+                                "intitule", m.getIntitule(),
+                                "enseignantId",
+                                        m.getEnseignant() != null
+                                                ? m.getEnseignant().getId()
+                                                : 0L
                         ))
                         .collect(Collectors.toList());
 
         return ResponseEntity.ok(Map.of("data", data));
     }
+
+    // ================= CREATE MATIERE =================
+
     @PostMapping("/matieres")
     public ResponseEntity<?> createMatiere(
             @RequestBody CreateMatiereRequest req
     ) {
-        if (matiereRepository.existsByCode(req.getCode())) {
+        try {
+
+            if (req.getCode() == null || req.getCode().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Le code de la matière est obligatoire"));
+            }
+
+            if (req.getIntitule() == null || req.getIntitule().isBlank()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "L'intitulé de la matière est obligatoire"));
+            }
+
+            Matiere matiere = new Matiere();
+            matiere.setCode(req.getCode());
+            matiere.setIntitule(req.getIntitule());
+
+            if (req.getEnseignantId() != null) {
+
+                Enseignant enseignant =
+                        enseignantRepository.findById(req.getEnseignantId())
+                                .orElseThrow(() ->
+                                        new RuntimeException("Enseignant introuvable"));
+
+                matiere.setEnseignant(enseignant);
+            }
+
+            Matiere saved = matiereRepository.save(matiere);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Matière créée avec succès",
+                    "id", saved.getId(),
+                    "code", saved.getCode(),
+                    "intitule", saved.getIntitule(),
+                    "enseignantId",
+                            saved.getEnseignant() != null
+                                    ? saved.getEnseignant().getId()
+                                    : null
+            ));
+
+        } catch (Exception e) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Code matière déjà utilisé"));
+                    .body(Map.of("error", e.getMessage()));
         }
-
-        Matiere m = new Matiere();
-        m.setCode(req.getCode());
-        m.setIntitule(req.getIntitule());
-        matiereRepository.save(m);
-
-        return ResponseEntity.ok(Map.of(
-                "message", "Matière créée avec succès",
-                "id", m.getId(),
-                "code", m.getCode(),
-                "intitule", m.getIntitule()
-        ));
     }
+
+    // ================= DELETE MATIERE =================
+
     @DeleteMapping("/matieres/{id}")
     public ResponseEntity<?> deleteMatiere(@PathVariable Integer id) {
+
         if (!matiereRepository.existsById(id)) {
             return ResponseEntity.status(404)
                     .body(Map.of("error", "Matière introuvable"));
         }
-        matiereRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of("message", "Matière supprimée"));
-    }
 
+        matiereRepository.deleteById(id);
+
+        return ResponseEntity.ok(
+                Map.of("message", "Matière supprimée")
+        );
+    }
+   
 }
