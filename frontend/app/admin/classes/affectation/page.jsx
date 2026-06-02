@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
-export default function AffectationEtudiantsPage() {
+function AffectationEtudiantsContent() {
   const searchParams = useSearchParams();
   const [classes, setClasses] = useState([]);
   const [groupes, setGroupes] = useState([]);
@@ -220,5 +220,13 @@ export default function AffectationEtudiantsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AffectationEtudiantsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AffectationEtudiantsContent />
+    </Suspense>
   );
 }

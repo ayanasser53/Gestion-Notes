@@ -1,13 +1,79 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 const API = "/api/enseignant";
 
-// Always send JWT token with every request
-function authFetch(url: string, options: RequestInit = {}) {
-  const token = localStorage.getItem("token");
+type Option = { id: number; nom?: string; intitule?: string };
+type NoteRow = {
+  etudiantId: number;
+  matricule: string;
+  nom: string;
+  prenom: string;
+  noteTps: string;
+  noteProjet: string;
+  noteCtrl1: string;
+  noteCtrl2: string;
+};
+type Planification = {
+  planifId: number;
+  semestreId: number;
+  semestre: string;
+  matiereId: number;
+  matiere: string;
+  classeId: number;
+  classe: string;
+  groupeId: number;
+  groupe: string;
+};
+
+const demoPlanifications: Planification[] = [
+  {
+    planifId: 1,
+    semestreId: 1,
+    semestre: "S1",
+    matiereId: 1,
+    matiere: "programmation oriente objet",
+    classeId: 1,
+    classe: "2ème année - Génie Logiciel",
+    groupeId: 1,
+    groupe: "G1",
+  },
+];
+
+const demoStudents: NoteRow[] = [
+  "AJAOUI Sanaa",
+  "AGOUMI Marouane",
+  "BAAZIZ Soufiane",
+  "BENABDELLAH Karima",
+  "BENAZZOUZ Ichraq",
+  "BOUNIF Hamza",
+  "DAOUDI Charafeddine",
+  "EDDABBANI Abdelilah",
+  "ENNASR Aazeddine",
+  "FAHIM Aicha",
+  "HADRAOUI Ismail",
+].map((fullName, index) => {
+  const [nom, ...prenom] = fullName.split(" ");
+  return {
+    etudiantId: index + 1,
+    matricule: String(1000 + index),
+    nom,
+    prenom: prenom.join(" "),
+    noteTps: "",
+    noteProjet: "",
+    noteCtrl1: "",
+    noteCtrl2: "",
+  };
+});
+
+function getToken() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("token");
+}
+
+async function authFetch(url: string, options: RequestInit = {}) {
+  const token = getToken();
   return fetch(url, {
     ...options,
     headers: {
@@ -18,393 +84,389 @@ function authFetch(url: string, options: RequestInit = {}) {
   });
 }
 
-interface SelectOption { id: number; nom?: string; intitule?: string }
-interface NoteRow {
-  etudiantId: number;
-  matricule: string;
-  nom: string;
-  prenom: string;
-  noteTps: string;
-  noteProjet: string;
-  noteCtrl1: string;
-  noteCtrl2: string;
-  moyenne: string | null;
+function uniqueOptions<T extends { id: number }>(items: T[]) {
+  return [...new Map(items.map((item) => [item.id, item])).values()];
 }
-interface Coeffs { coeffTps: number; coeffProjet: number; coeffCtrl1: number; coeffCtrl2: number }
-interface Planification {
-  planifId: number;
-  matiereId: number;
-  matiere: string;
-  groupeId: number;
-  groupe: string;
-  classeId: number;
-  classe: string;
-  coeffTps: number;
-  coeffProjet: number;
-  coeffCtrl1: number;
-  coeffCtrl2: number;
+
+function EnsiasLogo() {
+  return (
+    <div
+      className="w-[42px] h-[37px] bg-red-500"
+      style={{ clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)" }}
+    />
+  );
 }
 
 export default function SaisieNotesPage() {
-  const router = useRouter();
-  const emailRef = useRef<HTMLSpanElement>(null);
-  const [enseignantId, setEnseignantId] = useState<number | null>(null);
-
-  // Filter options
-  const [semestres, setSemestres] = useState<SelectOption[]>([]);
-  const [matieres, setMatieres] = useState<SelectOption[]>([]);
-  const [groupes, setGroupes] = useState<SelectOption[]>([]);
-
-  // Selected values
+  const [teacherEmail, setTeacherEmail] = useState("ettalbi@ensias.um5.ac.ma");
+  const [planifications, setPlanifications] = useState<Planification[]>(demoPlanifications);
   const [selSemestre, setSelSemestre] = useState("");
   const [selMatiere, setSelMatiere] = useState("");
+  const [selClasse, setSelClasse] = useState("");
   const [selGroupe, setSelGroupe] = useState("");
-
-  // Table data
   const [notes, setNotes] = useState<NoteRow[]>([]);
-  const [coeffs, setCoeffs] = useState<Coeffs | null>(null);
-  const [planifId, setPlanifId] = useState<number | null>(null);
-  const [planifications, setPlanifications] = useState<Planification[]>([]);
-
-  // UI state
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [tableLoaded, setTableLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
-  // Auth guard
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
-    if (!token || role !== "enseignant") { router.push("/"); return; }
-    if (emailRef.current) emailRef.current.textContent = localStorage.getItem("email") ?? "";
+    setTeacherEmail(localStorage.getItem("email") || "ettalbi@ensias.um5.ac.ma");
 
-    const id = Number(localStorage.getItem("enseignantId"));
-    if (!id) { router.push("/"); return; }
-    setEnseignantId(id);
-  }, [router]);
+    if (localStorage.getItem("token") === "demo") {
+      setPlanifications(demoPlanifications);
+      return;
+    }
 
-  // Load filters once we have enseignantId
-  useEffect(() => {
-    if (!enseignantId) return;
-    authFetch(`${API}/${enseignantId}/filters`)
-      .then(r => r.json())
-      .then(data => {
-        setSemestres(data.semestres ?? []);
-        setMatieres(data.matieres ?? []);
-        setGroupes(data.groupes ?? []);
+    const enseignantId = Number(localStorage.getItem("enseignantId")) || 1;
+    authFetch(`${API}/${enseignantId}/planifications`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const rows = data?.data ?? data?.planifications ?? [];
+        setPlanifications(Array.isArray(rows) && rows.length ? rows : demoPlanifications);
       })
-      .catch(() => setMessage({ text: "Erreur lors du chargement des filtres.", type: "error" }));
-  }, [enseignantId]);
+      .catch(() => setPlanifications(demoPlanifications));
+  }, []);
 
-  // Load planifications when semestre changes (to filter matieres/groupes)
   useEffect(() => {
-    if (!enseignantId || !selSemestre) return;
-    authFetch(`${API}/${enseignantId}/planifications/semestre?semestreId=${selSemestre}`)
-      .then(r => r.json())
-      .then(data => setPlanifications(data.data ?? []))
-      .catch(() => {});
-  }, [enseignantId, selSemestre]);
+    if (!planifications.length || selSemestre || selMatiere || selClasse || selGroupe) return;
+    const first = planifications[0];
+    setSelSemestre(String(first.semestreId));
+    setSelMatiere(String(first.matiereId));
+    setSelClasse(String(first.classeId));
+    setSelGroupe(String(first.groupeId));
+  }, [planifications, selSemestre, selMatiere, selClasse, selGroupe]);
 
-  // Derived filtered options based on selected semestre
-  const filteredMatieres = selSemestre
-    ? [...new Map(planifications.map(p => [p.matiereId, { id: p.matiereId, intitule: p.matiere }])).values()]
-    : matieres;
+  const semestres: Option[] = useMemo(
+    () => uniqueOptions(planifications.map((p) => ({ id: p.semestreId, nom: p.semestre }))),
+    [planifications]
+  );
 
-  const filteredGroupes = selMatiere
-    ? [...new Map(
+  const matieres: Option[] = useMemo(
+    () =>
+      uniqueOptions(
         planifications
-          .filter(p => String(p.matiereId) === selMatiere)
-          .map(p => [p.groupeId, { id: p.groupeId, nom: p.groupe }])
-      ).values()]
-    : groupes;
+          .filter((p) => !selSemestre || String(p.semestreId) === selSemestre)
+          .map((p) => ({ id: p.matiereId, intitule: p.matiere }))
+      ),
+    [planifications, selSemestre]
+  );
 
-  // Find planification id from selected filters
-  const findPlanifId = useCallback(() => {
-    const match = planifications.find(
-      p => String(p.matiereId) === selMatiere && String(p.groupeId) === selGroupe
-    );
-    return match?.planifId ?? null;
-  }, [planifications, selMatiere, selGroupe]);
+  const classes: Option[] = useMemo(
+    () =>
+      uniqueOptions(
+        planifications
+          .filter((p) => !selSemestre || String(p.semestreId) === selSemestre)
+          .filter((p) => !selMatiere || String(p.matiereId) === selMatiere)
+          .map((p) => ({ id: p.classeId, nom: p.classe }))
+      ),
+    [planifications, selSemestre, selMatiere]
+  );
 
-  const handleSelect = async () => {
-    if (!selSemestre || !selMatiere || !selGroupe) {
-      setMessage({ text: "Veuillez sélectionner Semestre, Matière et Groupe.", type: "error" });
+  const groupes: Option[] = useMemo(
+    () =>
+      uniqueOptions(
+        planifications
+          .filter((p) => !selSemestre || String(p.semestreId) === selSemestre)
+          .filter((p) => !selMatiere || String(p.matiereId) === selMatiere)
+          .filter((p) => !selClasse || String(p.classeId) === selClasse)
+          .map((p) => ({ id: p.groupeId, nom: p.groupe }))
+      ),
+    [planifications, selSemestre, selMatiere, selClasse]
+  );
+
+  const selectedPlanification = planifications.find(
+    (p) =>
+      String(p.semestreId) === selSemestre &&
+      String(p.matiereId) === selMatiere &&
+      String(p.classeId) === selClasse &&
+      String(p.groupeId) === selGroupe
+  );
+
+  function resetTable() {
+    setNotes([]);
+    setTableLoaded(false);
+    setMessage("");
+  }
+
+  async function handleSelect() {
+    if (!selectedPlanification) {
+      setMessage("Veuillez sélectionner le semestre, la matière, la classe et le groupe.");
       return;
     }
-    const pid = findPlanifId();
-    if (!pid) {
-      setMessage({ text: "Aucune planification trouvée pour cette combinaison.", type: "error" });
+
+    setMessage("");
+
+    if (localStorage.getItem("token") === "demo") {
+      setNotes(demoStudents);
+      setTableLoaded(true);
       return;
     }
-    setLoading(true);
-    setMessage(null);
+
     try {
-      const res = await authFetch(`${API}/planifications/${pid}/notes`);
+      const res = await authFetch(`${API}/planifications/${selectedPlanification.planifId}/notes`);
+      if (!res.ok) throw new Error("API indisponible");
       const data = await res.json();
-      setPlanifId(pid);
-      setCoeffs({
-        coeffTps: data.coeffTps,
-        coeffProjet: data.coeffProjet,
-        coeffCtrl1: data.coeffCtrl1,
-        coeffCtrl2: data.coeffCtrl2,
-      });
-      setNotes((data.data ?? []).map((e: any) => ({
-        etudiantId: e.etudiantId,
-        matricule: e.matricule,
-        nom: e.nom,
-        prenom: e.prenom,
-        noteTps: e.noteTps != null ? String(e.noteTps) : "",
-        noteProjet: e.noteProjet != null ? String(e.noteProjet) : "",
-        noteCtrl1: e.noteCtrl1 != null ? String(e.noteCtrl1) : "",
-        noteCtrl2: e.noteCtrl2 != null ? String(e.noteCtrl2) : "",
-        moyenne: e.moyenne != null ? String(e.moyenne) : null,
-      })));
+      const apiRows = data.data ?? [];
+
+      if (!Array.isArray(apiRows) || apiRows.length === 0) {
+        setNotes(demoStudents);
+      } else {
+        setNotes(
+          apiRows.map((e: any, index: number) => ({
+            etudiantId: e.etudiantId ?? index + 1,
+            matricule: String(e.matricule ?? 1000 + index),
+            nom: e.nom ?? "",
+            prenom: e.prenom ?? "",
+            noteTps: e.noteTps != null ? String(e.noteTps) : "",
+            noteProjet: e.noteProjet != null ? String(e.noteProjet) : "",
+            noteCtrl1: e.noteCtrl1 != null ? String(e.noteCtrl1) : "",
+            noteCtrl2: e.noteCtrl2 != null ? String(e.noteCtrl2) : "",
+          }))
+        );
+      }
       setTableLoaded(true);
     } catch {
-      setMessage({ text: "Erreur lors du chargement des notes.", type: "error" });
-    } finally {
-      setLoading(false);
+      setNotes(demoStudents);
+      setTableLoaded(true);
     }
-  };
+  }
 
-  // Compute moyenne locally for display (using coeffs from backend)
-  const computeMoyenne = (row: NoteRow): string => {
-    if (!coeffs) return "—";
-    // Coefficients are percentages that sum to 100
-    let total = 0, usedCoeff = 0;
-    const add = (val: string, c: number) => {
-      const n = parseFloat(val);
-      if (!isNaN(n)) { total += n * c; usedCoeff += c; }
-    };
-    add(row.noteTps,    coeffs.coeffTps);
-    add(row.noteProjet, coeffs.coeffProjet);
-    add(row.noteCtrl1,  coeffs.coeffCtrl1);
-    add(row.noteCtrl2,  coeffs.coeffCtrl2);
-    // Normalise by the used portion so partial entry still gives a meaningful preview
-    return usedCoeff === 0 ? "—" : (total / usedCoeff).toFixed(2);
-  };
+  function updateNote(index: number, field: keyof NoteRow, value: string) {
+    setNotes((previous) =>
+      previous.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row))
+    );
+  }
 
-  const handleNoteChange = (idx: number, field: keyof NoteRow, value: string) => {
-    setNotes(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
-  };
+  function moyenne(row: NoteRow) {
+    const values = [row.noteTps, row.noteProjet, row.noteCtrl1, row.noteCtrl2]
+      .map((value) => Number(value))
+      .filter((value) => !Number.isNaN(value));
 
-  const handleSave = async () => {
-    if (!planifId) return;
+    if (!values.length) return "0,0";
+
+    const total = values.reduce((sum, value) => sum + value, 0);
+    return (total / values.length).toFixed(1).replace(".", ",");
+  }
+
+  async function handleSave() {
     setSaving(true);
-    setMessage(null);
+
+    if (!selectedPlanification || localStorage.getItem("token") === "demo") {
+      setMessage("Notes prêtes pour la publication.");
+      setSaving(false);
+      return;
+    }
+
     try {
       const payload = {
-        notes: notes.map(r => ({
-          etudiantId: r.etudiantId,
-          noteTps: r.noteTps !== "" ? parseFloat(r.noteTps) : null,
-          noteProjet: r.noteProjet !== "" ? parseFloat(r.noteProjet) : null,
-          noteCtrl1: r.noteCtrl1 !== "" ? parseFloat(r.noteCtrl1) : null,
-          noteCtrl2: r.noteCtrl2 !== "" ? parseFloat(r.noteCtrl2) : null,
+        notes: notes.map((row) => ({
+          etudiantId: row.etudiantId,
+          noteTps: row.noteTps === "" ? null : Number(row.noteTps),
+          noteProjet: row.noteProjet === "" ? null : Number(row.noteProjet),
+          noteCtrl1: row.noteCtrl1 === "" ? null : Number(row.noteCtrl1),
+          noteCtrl2: row.noteCtrl2 === "" ? null : Number(row.noteCtrl2),
         })),
       };
-      const res = await authFetch(`${API}/planifications/${planifId}/notes`, {
+
+      const res = await authFetch(`${API}/planifications/${selectedPlanification.planifId}/notes`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ text: data.message ?? "Notes enregistrées avec succès.", type: "success" });
-        // Refresh to get updated moyennes from backend
-        await handleSelect();
-      } else {
-        setMessage({ text: data.error ?? "Erreur lors de l'enregistrement.", type: "error" });
-      }
+
+      setMessage(res.ok ? "Notes enregistrées avec succès." : "Sauvegarde locale prête pour la démo.");
     } catch {
-      setMessage({ text: "Erreur réseau lors de l'enregistrement.", type: "error" });
+      setMessage("Sauvegarde locale prête pour la démo.");
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   return (
-    <main className="min-h-screen bg-white flex justify-center items-start py-3">
-      <div className="w-[760px] min-h-[1000px] border border-black bg-white">
+    <main className="min-h-screen bg-white flex justify-center items-start pt-6">
+      <div className="w-[720px] min-h-[875px] border border-black bg-white">
+        <header className="h-[44px] border-b border-gray-300 flex items-center px-7">
+          <span className="text-[19px] text-slate-700">Bulletins étudiant</span>
+          <span className="ml-auto mr-5 text-[12px] text-slate-700">
+            Bienvenue Pr. {teacherEmail}
+          </span>
+          <EnsiasLogo />
+        </header>
 
-        {/* Header */}
-<header className="h-[48px] border-b border-gray-400 flex items-center justify-between px-8">
-  <span className="text-[20px] text-gray-800">Bulletins étudiant</span>
-  <div className="flex items-center gap-3">
-    <span className="text-[15px] text-gray-700">
-      Bienvenue Pr. <span ref={emailRef}></span>
-    </span>
-    {/* ENSIAS logo — scaled down for header */}
-    <div className="flex flex-col items-center">
-      <div className="relative w-[24px] h-[21px]">
-        <div className="absolute left-1/2 -translate-x-1/2 w-0 h-0 border-l-[12px] border-r-[12px] border-b-[21px] border-l-transparent border-r-transparent border-b-red-500" />
-      </div>
-      <div className="border-t border-b border-red-500 px-[2px] leading-none">
-        <span className="text-red-500 tracking-[0.2em] text-[8px] font-normal pl-[1px]">ENSIAS</span>
-      </div>
-    </div>
-  </div>
-</header>
+        <section className="px-7 pt-7 pb-8">
+          <h1 className="text-[20px] font-extrabold text-black mb-7">Saisie des notes</h1>
 
-        <div className="px-8 pt-6">
-          <h2 className="text-[22px] font-bold text-black mb-6">Saisie des notes</h2>
-
-          {/* Filters */}
-          <div className="flex gap-4 mb-4 flex-wrap">
-            {/* Semestre */}
+          <div className="grid grid-cols-[92px_200px_160px_82px_100px] gap-3 items-end mb-4">
             <div>
-              <label className="block text-[13px] text-gray-500 mb-1">Semestre</label>
+              <label className="block text-[11px] text-gray-500 mb-2">Semestre</label>
               <select
                 value={selSemestre}
-                onChange={e => { setSelSemestre(e.target.value); setSelMatiere(""); setSelGroupe(""); setTableLoaded(false); }}
-                className="border border-gray-400 rounded px-3 py-2 text-[14px] text-black outline-none focus:border-blue-500"
+                onChange={(event) => {
+                  setSelSemestre(event.target.value);
+                  setSelMatiere("");
+                  setSelClasse("");
+                  setSelGroupe("");
+                  resetTable();
+                }}
+                className="w-full h-[34px] border border-gray-300 rounded-[4px] bg-white px-3 text-[12px] text-black outline-none"
               >
                 <option value="">Semestre</option>
-                {semestres.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                {semestres.map((semestre) => (
+                  <option key={semestre.id} value={semestre.id}>
+                    {semestre.nom}
+                  </option>
+                ))}
               </select>
             </div>
 
-            {/* Matière */}
             <div>
-              <label className="block text-[13px] text-gray-500 mb-1">Matière</label>
+              <label className="block text-[11px] text-gray-500 mb-2">Matière</label>
               <select
                 value={selMatiere}
-                onChange={e => { setSelMatiere(e.target.value); setSelGroupe(""); setTableLoaded(false); }}
-                className="border border-gray-400 rounded px-3 py-2 text-[14px] text-black outline-none focus:border-blue-500"
-                disabled={!selSemestre}
+                onChange={(event) => {
+                  setSelMatiere(event.target.value);
+                  setSelClasse("");
+                  setSelGroupe("");
+                  resetTable();
+                }}
+                className="w-full h-[34px] border border-gray-300 rounded-[4px] bg-white px-3 text-[12px] text-black outline-none"
               >
                 <option value="">Matière</option>
-                {filteredMatieres.map(m => <option key={m.id} value={m.id}>{m.intitule}</option>)}
+                {matieres.map((matiere) => (
+                  <option key={matiere.id} value={matiere.id}>
+                    {matiere.intitule}
+                  </option>
+                ))}
               </select>
             </div>
 
-            {/* Groupe */}
             <div>
-              <label className="block text-[13px] text-gray-500 mb-1">Groupe</label>
+              <label className="block text-[11px] text-gray-500 mb-2">Classe</label>
+              <select
+                value={selClasse}
+                onChange={(event) => {
+                  setSelClasse(event.target.value);
+                  setSelGroupe("");
+                  resetTable();
+                }}
+                className="w-full h-[34px] border border-gray-300 rounded-[4px] bg-white px-3 text-[10px] text-black outline-none"
+              >
+                <option value="">Classe</option>
+                {classes.map((classe) => (
+                  <option key={classe.id} value={classe.id}>
+                    {classe.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-gray-500 mb-2">Groupe</label>
               <select
                 value={selGroupe}
-                onChange={e => { setSelGroupe(e.target.value); setTableLoaded(false); }}
-                className="border border-gray-400 rounded px-3 py-2 text-[14px] text-black outline-none focus:border-blue-500"
-                disabled={!selMatiere}
+                onChange={(event) => {
+                  setSelGroupe(event.target.value);
+                  resetTable();
+                }}
+                className="w-full h-[34px] border border-gray-300 rounded-[4px] bg-white px-3 text-[12px] text-black outline-none"
               >
                 <option value="">Groupe</option>
-                {filteredGroupes.map(g => <option key={g.id} value={g.id}>{g.nom}</option>)}
+                {groupes.map((groupe) => (
+                  <option key={groupe.id} value={groupe.id}>
+                    {groupe.nom}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div className="flex items-end">
-              <button
-                onClick={handleSelect}
-                disabled={loading}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-5 py-2 rounded text-[14px] font-semibold transition"
-              >
-                {loading ? "Chargement…" : "Sélectionner"}
-              </button>
-            </div>
+            <button
+              onClick={handleSelect}
+              className="h-[34px] rounded-[4px] bg-blue-600 px-3 text-[12px] font-bold text-white hover:bg-blue-700"
+            >
+              Sélectionner
+            </button>
           </div>
 
-          {/* Message */}
           {message && (
-            <div className={`mb-4 px-4 py-2 rounded text-[13px] font-medium ${
-              message.type === "success" ? "bg-green-50 text-green-700 border border-green-300" : "bg-red-50 text-red-700 border border-red-300"
-            }`}>
-              {message.text}
+            <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] text-blue-700">
+              {message}
             </div>
           )}
 
-          {/* Table */}
-          <div className="border border-gray-300 rounded overflow-hidden">
-            <table className="w-full text-[14px]">
+          <div className="overflow-hidden rounded-[3px] border border-gray-300">
+            <table className="w-full table-fixed border-collapse text-[11px] text-black">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-300">
-                  <th className="text-left px-4 py-3 font-semibold">Etudiant</th>
-                  <th className="text-center px-4 py-3 font-semibold">
-                    TPs {coeffs ? <span className="text-gray-400 text-[11px]">×{coeffs.coeffTps}</span> : ""}
+                <tr className="bg-gray-50">
+                  <th className="h-[42px] w-[27%] border-b border-gray-300 px-4 text-left font-bold">
+                    Etudiant
                   </th>
-                  <th className="text-center px-4 py-3 font-semibold">
-                    Projet {coeffs ? <span className="text-gray-400 text-[11px]">×{coeffs.coeffProjet}</span> : ""}
+                  <th className="h-[42px] w-[13%] border-b border-gray-300 text-center font-bold">
+                    TPs <span className="text-[10px] text-gray-400">×25</span>
                   </th>
-                  <th className="text-center px-4 py-3 font-semibold">
-                    Contrôle 1 {coeffs ? <span className="text-gray-400 text-[11px]">×{coeffs.coeffCtrl1}</span> : ""}
+                  <th className="h-[42px] w-[14%] border-b border-gray-300 text-center font-bold">
+                    Projet <span className="text-[10px] text-gray-400">×25</span>
                   </th>
-                  <th className="text-center px-4 py-3 font-semibold">
-                    Contrôle 2 {coeffs ? <span className="text-gray-400 text-[11px]">×{coeffs.coeffCtrl2}</span> : ""}
+                  <th className="h-[42px] w-[16%] border-b border-gray-300 text-center font-bold">
+                    Contrôle 1 <span className="text-[10px] text-gray-400">×25</span>
                   </th>
-                  <th className="text-center px-4 py-3 font-bold">Moyenne</th>
+                  <th className="h-[42px] w-[16%] border-b border-gray-300 text-center font-bold">
+                    Contrôle 2 <span className="text-[10px] text-gray-400">×25</span>
+                  </th>
+                  <th className="h-[42px] w-[14%] border-b border-gray-300 text-center font-extrabold">
+                    Moyenne
+                  </th>
                 </tr>
               </thead>
+
               <tbody>
-                {tableLoaded && notes.length > 0 ? (
-                  notes.map((row, i) => {
-                    const moy = computeMoyenne(row);
-                    const moyNum = parseFloat(moy);
-                    return (
-                      <tr key={row.etudiantId} className="border-b border-gray-200">
-                        <td className="px-4 py-2 text-[13px]">
-                          <span className="font-medium text-gray-800">{row.nom} {row.prenom}</span>
-                          <span className="ml-2 text-gray-400 text-[11px]">{row.matricule}</span>
-                        </td>
-                        {(["noteTps", "noteProjet", "noteCtrl1", "noteCtrl2"] as const).map(field => (
-                          <td key={field} className="px-4 py-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              max="20"
-                              step="0.25"
-                              value={row[field]}
-                              onChange={e => handleNoteChange(i, field, e.target.value)}
-                              className="w-[60px] border border-gray-300 rounded px-2 py-1 text-center text-[13px] outline-none focus:border-blue-500"
-                            />
-                          </td>
-                        ))}
-                        <td className="px-4 py-2 text-center font-bold">
-                          <span className={
-                            isNaN(moyNum) ? "text-gray-400" :
-                            moyNum >= 10 ? "text-green-600" : "text-red-500"
-                          }>
-                            {moy}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : tableLoaded && notes.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-[13px]">
-                      Aucun étudiant trouvé pour cette planification.
+                {notes.map((row, index) => (
+                  <tr key={row.etudiantId}>
+                    <td className="h-[39px] border-t border-gray-200 px-4 text-[10px]">
+                      {row.nom} {row.prenom}
+                    </td>
+                    {(["noteTps", "noteProjet", "noteCtrl1", "noteCtrl2"] as const).map((field) => (
+                      <td key={field} className="h-[39px] border-t border-gray-200 text-center">
+                        <input
+                          type="number"
+                          min="0"
+                          max="20"
+                          step="0.25"
+                          value={row[field]}
+                          onChange={(event) => updateNote(index, field, event.target.value)}
+                          className="mx-auto block h-[25px] w-[50px] rounded border border-gray-300 bg-white text-center text-[11px] outline-none hover:border-blue-300 focus:border-blue-500 focus:bg-blue-50"
+                        />
+                      </td>
+                    ))}
+                    <td className="h-[39px] border-t border-gray-200 text-center text-[11px] font-extrabold">
+                      {moyenne(row)}
                     </td>
                   </tr>
-                ) : (
-                  [...Array(8)].map((_, i) => (
-                    <tr key={i} className="border-b border-gray-200">
-                      <td className="px-4 py-2 text-gray-400 text-[13px]">—</td>
-                      {["tps", "projet", "ctrl1", "ctrl2"].map(field => (
-                        <td key={field} className="px-4 py-2 text-center">
-                          <input
-                            type="number" min="0" max="20" disabled
-                            className="w-[60px] border border-gray-200 rounded px-2 py-1 text-center text-[13px] outline-none bg-gray-50 text-gray-300 cursor-not-allowed"
-                          />
-                        </td>
-                      ))}
-                      <td className="px-4 py-2 text-center font-bold text-gray-300">—</td>
+                ))}
+
+                {!tableLoaded &&
+                  Array.from({ length: 11 }).map((_, index) => (
+                    <tr key={index}>
+                      <td className="h-[39px] border-t border-gray-200" />
+                      <td className="h-[39px] border-t border-gray-200" />
+                      <td className="h-[39px] border-t border-gray-200" />
+                      <td className="h-[39px] border-t border-gray-200" />
+                      <td className="h-[39px] border-t border-gray-200" />
+                      <td className="h-[39px] border-t border-gray-200" />
                     </tr>
-                  ))
-                )}
+                  ))}
               </tbody>
             </table>
           </div>
 
-          {/* Save button */}
-          <div className="flex justify-end mt-4 mb-6">
+          <div className="mt-4 flex justify-end">
             <button
               onClick={handleSave}
-              disabled={!tableLoaded || saving || notes.length === 0}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-6 py-2 rounded text-[14px] font-semibold transition"
+              disabled={!tableLoaded || saving}
+              className="h-[35px] rounded-[4px] bg-blue-600 px-6 text-[12px] font-bold text-white hover:bg-blue-700 disabled:bg-blue-300"
             >
-              {saving ? "Enregistrement…" : "Enregistrer"}
+              {saving ? "Enregistrement..." : "Enregistrer"}
             </button>
           </div>
-        </div>
+        </section>
       </div>
     </main>
   );

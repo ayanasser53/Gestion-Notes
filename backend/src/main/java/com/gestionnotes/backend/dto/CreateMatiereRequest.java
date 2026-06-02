@@ -4,7 +4,7 @@ public class CreateMatiereRequest {
 
     private String code;
     private String intitule;
-    private Long enseignantId;
+    private Integer enseignantId;
 
     public String getCode() {
         return code;
@@ -22,11 +22,11 @@ public class CreateMatiereRequest {
         this.intitule = intitule;
     }
 
-    public Long getEnseignantId() {
+    public Integer getEnseignantId() {
         return enseignantId;
     }
 
-    public void setEnseignantId(Long enseignantId) {
+    public void setEnseignantId(Integer enseignantId) {
         this.enseignantId = enseignantId;
     }
 }
