@@ -194,7 +194,7 @@ public class AdminController {
             if (req.getEnseignantId() != null) {
 
                 Enseignant enseignant =
-                        enseignantRepository.findById(req.getEnseignantId())
+                        enseignantRepository.findById(req.getEnseignantId().intValue())
                                 .orElseThrow(() ->
                                         new RuntimeException("Enseignant introuvable"));
 

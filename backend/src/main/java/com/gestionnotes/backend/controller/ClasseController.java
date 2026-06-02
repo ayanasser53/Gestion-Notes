@@ -253,7 +253,7 @@ public class ClasseController {
             return ResponseEntity.status(404).body(Map.of("error", "Classe introuvable"));
         }
 
-        List<Map<String, Object>> data = groupeRepository.findByClasseId(classeId).stream()
+        List<Map<String, Object>> data = groupeRepository.findByClasse_Id(classeId).stream()
             .map(g -> Map.<String, Object>of(
                 "id", g.getId(),
                 "nom", g.getNom()
