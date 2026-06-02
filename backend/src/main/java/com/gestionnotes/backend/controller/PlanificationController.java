@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -85,30 +86,29 @@ public class PlanificationController {
     @GetMapping("/planifications")
     public ResponseEntity<?> listerPlanifications(@RequestParam Integer semestreId) {
         List<Map<String, Object>> data = planificationRepository
-                .findBySemestre_Id(semestreId)
+                .findBySemestreId(semestreId)
                 .stream()
                 .map(p -> {
                     Groupe g = p.getGroupe();
                     Classe c = g.getClasse();
-
-                    Map<String, Object> map = new java.util.HashMap<>();
-                    map.put("id",              p.getId());
-                    map.put("semestreId",      p.getSemestre().getId());
-                    map.put("semestreNom",     p.getSemestre().getNom());
-                    map.put("groupeId",        g.getId());
-                    map.put("groupeNom",       g.getNom());
-                    map.put("classeId",        c.getId());
-                    map.put("classeNom",       c.getNiveau().getNom() + " - " + c.getSpecialite().getNom());
-                    map.put("matiereId",       p.getMatiere().getId());
-                    map.put("matiereIntitule", p.getMatiere().getIntitule());
-                    map.put("matiereCode",     p.getMatiere().getCode());
-                    map.put("enseignantId",    p.getEnseignant().getId());
-                    map.put("enseignantNom",   p.getEnseignant().getPrenom() + " " + p.getEnseignant().getNom());
-                    map.put("coeffTps",        p.getCoeffTps());
-                    map.put("coeffProjet",     p.getCoeffProjet());
-                    map.put("coeffCtrl1",      p.getCoeffCtrl1());
-                    map.put("coeffCtrl2",      p.getCoeffCtrl2());
-                    return map;
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",              p.getId());
+                    m.put("semestreId",      p.getSemestre().getId());
+                    m.put("semestreNom",     p.getSemestre().getNom());
+                    m.put("groupeId",        g.getId());
+                    m.put("groupeNom",       g.getNom());
+                    m.put("classeId",        c.getId());
+                    m.put("classeNom",       c.getNiveau().getNom() + " - " + c.getSpecialite().getNom());
+                    m.put("matiereId",       p.getMatiere().getId());
+                    m.put("matiereIntitule", p.getMatiere().getIntitule());
+                    m.put("matiereCode",     p.getMatiere().getCode());
+                    m.put("enseignantId",    p.getEnseignant().getId());
+                    m.put("enseignantNom",   p.getEnseignant().getPrenom() + " " + p.getEnseignant().getNom());
+                    m.put("coeffTps",        p.getCoeffTps());
+                    m.put("coeffProjet",     p.getCoeffProjet());
+                    m.put("coeffCtrl1",      p.getCoeffCtrl1());
+                    m.put("coeffCtrl2",      p.getCoeffCtrl2());
+                    return m;
                 })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(Map.of("data", data));
@@ -129,7 +129,8 @@ public class PlanificationController {
             int coeffCtrl2  = req.get("coeffCtrl2")  != null ? (Integer) req.get("coeffCtrl2")  : 0;
 
             // Check duplicate: same semestre + groupe + matière
-            boolean exists = planificationRepository.existsBySemestre_IdAndGroupe_IdAndMatiere_Id(semestreId, groupeId, matiereId);
+            boolean exists = planificationRepository
+                    .existsBySemestreIdAndGroupeIdAndMatiereId(semestreId, groupeId, matiereId);
             if (exists) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "error", "Cette matière est déjà planifiée pour ce groupe dans ce semestre"
@@ -187,16 +188,15 @@ public class PlanificationController {
                     .orElseThrow(() -> new RuntimeException("Planification introuvable"));
 
             if (req.containsKey("enseignantId")) {
-                Integer enseignantId = ((Number) req.get("enseignantId")).intValue(); // safe cast
                 Enseignant enseignant = enseignantRepository
-                        .findById(enseignantId)
+                        .findById((Integer) req.get("enseignantId"))
                         .orElseThrow(() -> new RuntimeException("Enseignant introuvable"));
                 p.setEnseignant(enseignant);
             }
-            if (req.containsKey("coeffTps"))    p.setCoeffTps(((Number) req.get("coeffTps")).intValue());
-            if (req.containsKey("coeffProjet")) p.setCoeffProjet(((Number) req.get("coeffProjet")).intValue());
-            if (req.containsKey("coeffCtrl1"))  p.setCoeffCtrl1(((Number) req.get("coeffCtrl1")).intValue());
-            if (req.containsKey("coeffCtrl2"))  p.setCoeffCtrl2(((Number) req.get("coeffCtrl2")).intValue());
+            if (req.containsKey("coeffTps"))    p.setCoeffTps((Integer) req.get("coeffTps"));
+            if (req.containsKey("coeffProjet")) p.setCoeffProjet((Integer) req.get("coeffProjet"));
+            if (req.containsKey("coeffCtrl1"))  p.setCoeffCtrl1((Integer) req.get("coeffCtrl1"));
+            if (req.containsKey("coeffCtrl2"))  p.setCoeffCtrl2((Integer) req.get("coeffCtrl2"));
 
             planificationRepository.save(p);
             return ResponseEntity.ok(Map.of("message", "Planification mise à jour"));

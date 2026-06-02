@@ -2,8 +2,10 @@ package com.gestionnotes.backend.controller;
 
 import com.gestionnotes.backend.dto.LoginRequest;
 import com.gestionnotes.backend.dto.RegisterRequest;
+import com.gestionnotes.backend.entity.Enseignant;
 import com.gestionnotes.backend.entity.Role;
 import com.gestionnotes.backend.entity.User;
+import com.gestionnotes.backend.repository.EnseignantRepository;
 import com.gestionnotes.backend.repository.RoleRepository;
 import com.gestionnotes.backend.repository.UserRepository;
 import com.gestionnotes.backend.service.HashService;
@@ -11,6 +13,7 @@ import com.gestionnotes.backend.service.JwtService;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -22,17 +25,20 @@ public class AuthController {
     private final RoleRepository roleRepository;
     private final HashService hashService;
     private final JwtService jwtService;
+    private final EnseignantRepository enseignantRepository; // ← added
 
     public AuthController(
             UserRepository userRepository,
             RoleRepository roleRepository,
             HashService hashService,
-            JwtService jwtService
+            JwtService jwtService,
+            EnseignantRepository enseignantRepository // ← added
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.hashService = hashService;
         this.jwtService = jwtService;
+        this.enseignantRepository = enseignantRepository; // ← added
     }
 
     private void verifierEmailEnsias(String email) {
@@ -122,23 +128,25 @@ public class AuthController {
             throw new RuntimeException("Accès refusé : vous n'êtes pas enseignant");
         }
 
+        // ── look up enseignant record to get its id ──────────────────────────
+        Enseignant enseignant = enseignantRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new RuntimeException("Profil enseignant introuvable"));
+
         String token = jwtService.generateToken(user);
 
-        return Map.of(
-                "message", "Connexion enseignant réussie",
-                "id", user.getId(),
-                "email", user.getEmail(),
-                "role", user.getRole().getNom(),
-                "token", token
-        );
+        // Use HashMap so we can put all keys including enseignantId
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Connexion enseignant réussie");
+        response.put("id", user.getId());
+        response.put("enseignantId", enseignant.getId()); // ← the key fix
+        response.put("email", user.getEmail());
+        response.put("role", user.getRole().getNom());
+        response.put("token", token);
+        return response;
     }
 
     // ─── Étudiant ─────────────────────────────────────────────────────────────
 
-    /**
-     * Créé par l'admin uniquement — POST /api/auth/etudiant-register
-     * Protégez cet endpoint côté SecurityConfig si vous ajoutez JWT filter plus tard.
-     */
     @PostMapping("/etudiant-register")
     public Map<String, Object> registerEtudiant(@RequestBody RegisterRequest request) throws Exception {
 

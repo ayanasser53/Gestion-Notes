@@ -10,27 +10,29 @@ public class Classe {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @ManyToOne
-    @JoinColumn(name = "annee_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "annee_id", nullable = false)
     private AnneeUniversitaire anneeUniversitaire;
 
-    @ManyToOne
-    @JoinColumn(name = "niveau_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "niveau_id", nullable = false)
     private Niveau niveau;
 
-    @ManyToOne
-    @JoinColumn(name = "specialite_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "specialite_id", nullable = false)
     private Specialite specialite;
 
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
+    // ── getters / setters ─────────────────────────────────────────────────────
 
-    public AnneeUniversitaire getAnneeUniversitaire() { return anneeUniversitaire; }
+    public Integer getId()                              { return id; }
+    public void    setId(Integer id)                    { this.id = id; }
+
+    public AnneeUniversitaire getAnneeUniversitaire()   { return anneeUniversitaire; }
     public void setAnneeUniversitaire(AnneeUniversitaire a) { this.anneeUniversitaire = a; }
 
-    public Niveau getNiveau() { return niveau; }
-    public void setNiveau(Niveau niveau) { this.niveau = niveau; }
+    public Niveau getNiveau()                           { return niveau; }
+    public void   setNiveau(Niveau n)                   { this.niveau = n; }
 
-    public Specialite getSpecialite() { return specialite; }
-    public void setSpecialite(Specialite specialite) { this.specialite = specialite; }
+    public Specialite getSpecialite()                   { return specialite; }
+    public void       setSpecialite(Specialite s)       { this.specialite = s; }
 }

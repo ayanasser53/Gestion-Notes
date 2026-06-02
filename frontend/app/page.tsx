@@ -15,51 +15,54 @@ export default function LoginPage() {
     setErrorMessage("");
     setSuccessMessage("");
 
+    // Try each endpoint; skip only on network error (catch), not on 4xx/5xx
     const endpoints = [
-      { url: "http://localhost:8081/api/auth/admin-login",      role: "admin" },
-      { url: "http://localhost:8081/api/auth/enseignant-login", role: "enseignant" },
-      { url: "http://localhost:8081/api/auth/etudiant-login",   role: "etudiant" },
+      "/api/auth/admin-login",
+      "/api/auth/enseignant-login",
+      "/api/auth/etudiant-login",
     ];
 
-    let connected = false;
-
-    for (const endpoint of endpoints) {
+    for (const url of endpoints) {
+      let res: Response;
       try {
-        const res = await fetch(endpoint.url, {
+        res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
-
-        if (res.ok) {
-          const data = await res.json();
-          localStorage.setItem("token", data.token);
-          localStorage.setItem("role", data.role);
-          localStorage.setItem("email", data.email);
-
-          setSuccessMessage("Connexion réussie ✅");
-          connected = true;
-
-          setTimeout(() => {
-            if (data.role === "admin") {
-              window.location.href = "/admin";
-            } else if (data.role === "enseignant") {
-              window.location.href = "/enseignant/saisie-notes";
-            } else if (data.role === "etudiant") {
-              window.location.href = "/etudiant/notes";
-            }
-          }, 1500);
-
-          break;
-        }
-      } catch (_) {
-        // continuer à l'endpoint suivant
+      } catch {
+        // Network error for this endpoint — try next
+        continue;
       }
+
+      if (res.ok) {
+        const data = await res.json();
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("role",  data.role);
+        localStorage.setItem("email", data.email);
+        localStorage.setItem("id",    String(data.id));
+
+        if (data.role === "enseignant" && data.enseignantId) {
+          localStorage.setItem("enseignantId", String(data.enseignantId));
+        }
+
+        setSuccessMessage("Connexion réussie ✅");
+
+        setTimeout(() => {
+          if (data.role === "admin")       window.location.href = "/admin";
+          else if (data.role === "enseignant") window.location.href = "/enseignant/saisie-notes";
+          else if (data.role === "etudiant")   window.location.href = "/etudiant/notes";
+        }, 1500);
+
+        return; // success — stop trying
+      }
+
+      // res not ok (4xx/5xx) — try next endpoint
     }
 
-    if (!connected) {
-      setErrorMessage("Email ou mot de passe incorrect ❌");
-    }
+    // All endpoints failed
+    setErrorMessage("Email ou mot de passe incorrect ❌");
   }
 
   return (

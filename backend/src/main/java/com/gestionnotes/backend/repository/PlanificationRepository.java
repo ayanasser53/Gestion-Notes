@@ -9,10 +9,15 @@ import java.util.List;
 @Repository
 public interface PlanificationRepository extends JpaRepository<Planification, Integer> {
 
-    // semestre is a @ManyToOne object → traverse via semestre.id
-    List<Planification> findBySemestre_Id(Integer semestreId);
+    // Used by admin
+    List<Planification> findBySemestreId(Integer semestreId);
 
-    // same for groupe and matiere
-    boolean existsBySemestre_IdAndGroupe_IdAndMatiere_Id(
+    boolean existsBySemestreIdAndGroupeIdAndMatiereId(
             Integer semestreId, Integer groupeId, Integer matiereId);
+
+    // Used by enseignant
+    List<Planification> findByEnseignantId(Integer enseignantId);
+
+    List<Planification> findByEnseignantIdAndSemestreId(
+            Integer enseignantId, Integer semestreId);
 }

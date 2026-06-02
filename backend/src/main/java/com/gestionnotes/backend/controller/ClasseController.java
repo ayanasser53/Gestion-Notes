@@ -173,7 +173,7 @@ public class ClasseController {
             .findByAnneeUniversitaireId(anneeId).stream()
             .map(c -> {
                 List<String> groupesNoms = groupeRepository
-                    .findByClasseId(c.getId())
+                    .findByClasse_Id(c.getId())
                     .stream()
                     .map(Groupe::getNom)
                     .collect(Collectors.toList());
@@ -238,7 +238,7 @@ public class ClasseController {
         if (!classeRepository.existsById(id)) {
             return ResponseEntity.status(404).body(Map.of("error", "Classe introuvable"));
         }
-        groupeRepository.deleteByClasseId(id);
+        groupeRepository.deleteByClasse_Id(id);
         classeRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("message", "Classe et ses groupes supprimés"));
     }
