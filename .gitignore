@@ -3,3 +3,15 @@ frontend/node_modules/
 frontend/.npm-cache/
 backend/target/
 
+
+# Secrets et fichiers locaux
+.env
+*.env.local
+backend/.env
+
+# IDE
+.project
+.classpath
+.settings/
+.idea/
+.vscode/
