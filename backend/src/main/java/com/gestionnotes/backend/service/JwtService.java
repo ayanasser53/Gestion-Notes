@@ -4,6 +4,7 @@ import com.gestionnotes.backend.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -12,7 +13,9 @@ import java.util.Map;
 @Service
 public class JwtService {
 
-    private final String SECRET = "1234567890123456789012345678901212345678901234567890123456789012";
+    // La clé est lue depuis la variable d'environnement JWT_SECRET (voir application.properties)
+    @Value("${jwt.secret}")
+    private String secret;
 
     public String generateToken(User user) {
         return Jwts.builder()
@@ -23,12 +26,13 @@ public class JwtService {
                 ))
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 24 * 60 * 60 * 1000))
-                .signWith(Keys.hmacShaKeyFor(SECRET.getBytes()))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes()))
                 .compact();
     }
+
     public Claims extractClaims(String token) {
         return Jwts.parser()
-                .verifyWith(Keys.hmacShaKeyFor(SECRET.getBytes()))
+                .verifyWith(Keys.hmacShaKeyFor(secret.getBytes()))
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
